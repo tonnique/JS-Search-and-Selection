@@ -1,0 +1,141 @@
+﻿<html>
+<head><title>Поиск и переход</title>
+<script language="JavaScript">
+<!--
+	var numFound = 0; // количество найденных совпадений
+	var from = 0; // индекс, с какого начинать поиск
+	var rng = null;	// объект Range  
+	var root = null; // сслыка на элемент - корневой контейнер
+	var content; // текстовое содержимое, в котором производим поиск
+
+	/* т.к. контейнер (корневой) объекта Range может содержать другие элементы (вложенные элементы),
+	нам нужно для выделения к ним также обратится. Поэтому эта функция возвращает массив узлов, которые входят в корневой контейнер, включая корневой контейнер.  
+	*/
+	function getTextNodesIn(node) {
+      var textNodes = [];
+      if (node.nodeType == 3) {
+          textNodes.push(node);
+      } else {
+          var children = node.childNodes;
+          for (var i = 0, len = children.length; i < len; ++i) {
+              textNodes.push.apply(textNodes, getTextNodesIn(children[i]));
+          }
+      }
+      return textNodes;
+    }
+	
+	/* функция поиска заданного пользователем текстовой строки
+		cValue - текстовая строка, указанная в эл. управления input text 	*/
+	function findme(cValue) {
+	
+		numFound = 0; // сколько совпадений было найдено
+		from = 0; // переменная определяет, с какой позиции должен быть произведен следующий поиск
+		
+		// в случае если пользователь не задал текст для поиска
+		if (cValue == null || cValue == '') {
+			// выводим сообщение
+			 alert("Задайте слова для поиска"); return;
+		}
+		else {
+			
+			root = document.getElementById('text'); // для объекта Range требуется определить контейнер - корневой элемент
+							
+			if (document.createRange) {
+				// Если браузер поддерживает Range, создаём объект
+				rng = document.createRange();
+				rng.selectNodeContents(root);				
+			}
+			
+			// у объекта Range получаем текст содержимого для поиска 
+			content = rng.toString();
+					
+			// Проверим есть ли совпадения с переданным текстом			
+			if (~content.indexOf(cValue)) {
+				// индекс с которого начинаем следующий поиск
+				var index = 0;
+				
+				// в цикле осуществляем поиск, указанного пользователем, текста по всему документу	
+				while(~index) {				
+					index = content.indexOf(cValue, index+cValue.length)
+					if (index != -1) { numFound++;}
+				}
+				
+				// если мы нашли что то - создаем элемент span и выводим сообщение
+				spanFound.innerHTML = "Найдено <SPAN STYLE='font-weight: bold'>" + numFound + "</SPAN> вхождений слова:";
+
+				/* дополнительно проверяем, (скорее всего избыточно) если было найденно в документе, создаем новую кнопку, при нажатии на которую вызывается метод select() */
+				if (numFound > 0) {				
+					search.innerHTML = '<BUTTON style="width:100; text-align: center" ' +
+										'onclick="findme(txtToFind.value)">Поиск</BUTTON>' +
+										'<BUTTON style="width: 100; text-align: center" onclick="select(txtToFind.value)">Перейти</BUTTON>';
+				}					
+			}			
+			
+		} // end of else [if (cValue == null || cValue == '')]
+	}
+
+	// в этой функции (при нажатии пользователем кнопки Перейти) скрипт выделяет очередной найденный фрагмент в документе
+	function select(text) {
+		// проверяем, что найденных фрагементов больше 0
+		if (numFound>0) {
+		    // определяем индекс, с которого начинается найденный фрагемент в документе
+			from = content.indexOf(text, from);
+			/* переменная to - длинна текстового фрагмента, которую мы ищем. 
+			  to равняется значение from + длина текста для поиска */
+			var to = from + text.length;
+			// вызываем метод для выделения фрагмента от from до to
+			highligh(from, to);			
+			// определяем, что новый поиск будет продолжнаться с новой позиции
+			from += text.length;			
+			numFound--; // теперь у нас на 1 найденных фрагментов в документе стало меньше
+		}				
+	}
+
+	// функция выделяет в документе фрагмент текста с позиции from до позиции to
+	function highligh(from, to) {
+		// флаг, что мы не нашли 
+		var foundStart = false;
+			var charCount = 0, endCharCount;
+			// получаем массив текстовых узлов в ходящий в корневой контейнер
+			var textNodes = getTextNodesIn(root); 
+			
+			for (var i = 0, textNode; textNode = textNodes[i++]; ) {
+				endCharCount = charCount + textNode.length;
+				
+				if (!foundStart && from >= charCount && (from < endCharCount || 
+					(from == endCharCount && i <= textNodes.length))) {
+						rng.setStart(textNode, from - charCount);
+						foundStart = true;
+				}
+				if (foundStart && to <= endCharCount) {
+					rng.setEnd(textNode, to - charCount);
+					break;
+				}
+				charCount = endCharCount;
+			}
+			
+			// объект selection выделяет фрагмент документа определенный объектом Range 
+			sel = window.getSelection();
+			sel.removeAllRanges();
+			sel.addRange(rng);   	
+	}
+	
+</script>
+</head>
+
+<body>
+
+	<div id="buttons" style="position: absolute; top: 20">&nbsp;
+		<span id="spanFound">Введите слово для поиска: </span> <input type=text id=txtToFind value="">
+		<span id="search">
+			<button style="width: 100; text-align: center" onclick="findme(txtToFind.value)">Поиск </button>
+		</span>
+	</div>
+
+	<div id="text" style="position: absolute; top:60; font-size:14pt;">
+		Правда и то: если никто не хочет задумываться, то, казалось бы, тем легче русскому литератору. Да, легче действительно; и горе тому литератору и издателю, который в наше время задумывается. Еще горше тому, кто сам захотел бы учиться и понимать; но еще горше тому, который объявит об этом искренно; а если заявит, что уже капельку понял и желает высказать свою мысль, то немедленно всеми оставляется...
+		<p>Ф.М. Достоевский "Дневник писателя за 1873 год"</p>
+	</div>
+
+</body>
+</html>
